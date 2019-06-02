@@ -3,46 +3,13 @@
 import argparse
 import csv
 import decimal
-import itertools
-import json
 import sys
 
 from dlog import Dlog
 
-# https://stackoverflow.com/a/46841935/7011381
-class SerializableGenerator(list):
-    """Generator that is serializable by JSON
-
-    It is useful for serializing huge data by JSON
-    >>> json.dumps(SerializableGenerator(iter([1, 2])))
-    "[1, 2]"
-    >>> json.dumps(SerializableGenerator(iter([])))
-    "[]"
-
-    It can be used in a generator of json chunks used e.g. for a stream
-    >>> iter_json = ison.JSONEncoder().iterencode(SerializableGenerator(iter([])))
-    >>> tuple(iter_json)
-    ('[1', ']')
-    # >>> for chunk in iter_json:
-    # ...     stream.write(chunk)
-    # >>> SerializableGenerator((x for x in range(3)))
-    # [<generator object <genexpr> at 0x7f858b5180f8>]
-    """
-
-    def __init__(self, iterable):
-        tmp_body = iter(iterable)
-        try:
-            self._head = iter([next(tmp_body)])
-            self.append(tmp_body)
-        except StopIteration:
-            self._head = []
-
-    def __iter__(self):
-        return itertools.chain(self._head, *self[:1])
-
 
 class _Dlog(Dlog):
-    """Kaitai <0.9 workaroumd: Munge the openlogger channel_map property.
+    """Kaitai <0.9 workaround: Munge the openlogger channel_map property.
 
     Kaitai v0.9 is required to implement the conditional (openscope vs
     openlogger) definition for the channel_map instance. In the meantime we can
@@ -60,15 +27,14 @@ class _Dlog(Dlog):
                 return self._m_channel_map if hasattr(self, '_m_channel_map') else None  # noqa: E501
 
 
-def extract_header_info(header: Dlog.Body.Header) -> list:
+def format_header_info(header: Dlog.Body.Header) -> list:
     """Extract the information from the header in a presentable form.
 
     Args:
-        header: a Dlog header object.
+        header: a Dlog header object
     Returns:
         list: header info as formatted strings
     """
-
     voltage_scale_strings = {1000: "mV", 1: "V"}
     voltage_scale = 1/header.voltage_scale
     if header.voltage_scale in voltage_scale_strings:
@@ -89,50 +55,54 @@ def extract_header_info(header: Dlog.Body.Header) -> list:
     return info
 
 
-def write_csv(data, meta_data=None, column_header=None, file=sys.stdout):
+def write_csv(data, log_header=None, column_header=None, file=sys.stdout):
+    """Write the given data to a CSV file.
+
+    Args:
+        data: iterable of samples (in turn, an iterable of channel data points)
+        log_header: optional list of log header fields
+        log_header: optional list of log header fields
+        file: file-like object to write the CSV to
+    """
     csv_writer = csv.writer(file)
-    if meta_data is not None:
-        csv_writer.writerow([json.dumps(meta_data)])
+    if log_header is not None:
+        csv_writer.writerow(log_header)
     if column_header is not None:
         csv_writer.writerow(column_header)
     csv_writer.writerows(data)
 
 
-def write_json(data, meta_data=None, column_header=None, file=sys.stdout):
-    json.dump(SerializableGenerator(iter(data)), file)
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('inputfile', help='input log file')
-    parser.add_argument('-f', '--format', choices=['csv', 'json'],
-                        default='csv', help='output format')
-    parser.add_argument('--no-metadata', action='store_true',
-                        help='omit log meta-data')
-    parser.add_argument('--no-csv-header', action='store_true',
-                        help='omit header for CSV output')
+    parser.add_argument('--quiet', '-q', action='store_true',
+                        help='omit log file information (on stderr)')
+    parser.add_argument('--no-csv-log-header', action='store_true',
+                        help='omit log header for CSV output')
+    parser.add_argument('--no-csv-column-header', action='store_true',
+                        help='omit column header for CSV output')
     args = parser.parse_args()
 
     dlog = _Dlog.from_file(args.inputfile)
-
     header = dlog.body.header
-    header_info = extract_header_info(header)
-    print('\n'.join(['Header Information'] + header_info), file=sys.stderr)
+
+    if not args.quiet:
+        print('\n'.join(['Header Information'] + format_header_info(header)),
+              file=sys.stderr)
 
     timestamped_data = ([i/header.sample_rate, *s.channel]
                         for i, s in enumerate(dlog.body.data.samples))
 
-    meta_data = column_header = None
-    if not args.no_metadata:
-        meta_data = header_info
-    if not args.no_csv_header:
+    log_header = column_header = None
+    if not args.no_csv_log_header:
+        # extract the header fields (all public attributes)
+        log_header = [f'{f}={v}' for f, v in vars(header).items() if not
+                      f.startswith('_')]
+    if not args.no_csv_column_header:
         column_header = ['Time'] + ['Channel ' + str(c) for c in
                                     header.channel_map[:header.num_channels]]
 
-    if args.format == 'json':
-        write_json(timestamped_data, meta_data, column_header)
-    else:
-        write_csv(timestamped_data, meta_data, column_header)
+    write_csv(timestamped_data, log_header, column_header)
 
 
 if __name__ == "__main__":

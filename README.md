@@ -38,7 +38,7 @@ Note that this code has not been tested with OpenScope logs beyond the single lo
 ### Usage
 
 ```sh
-$ ./dlogexport.py ./examples/openlogger.dlog > openlogger.csv
+$ ./dlogcsv.py ./examples/openlogger.dlog > openlogger.csv
 Header Information
 log format: openlogger
 stop reason: normal

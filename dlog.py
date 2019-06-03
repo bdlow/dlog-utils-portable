@@ -78,10 +78,10 @@ class Dlog(KaitaiStruct):
                 self.sample_size = self._io.read_u1()
                 self.header_size = self._io.read_u2le()
                 self.start_of_data = self._io.read_u2le()
-                self.dlog_format = self._root.DlogFormats(self._io.read_u2le())
+                self.dlog_format = KaitaiStream.resolve_enum(self._root.DlogFormats, self._io.read_u2le())
                 self.dlog_version = self._io.read_u4le()
                 self.voltage_scale = self._io.read_u8le()
-                self.stop_reason = self._root.StopReasons(self._io.read_u4le())
+                self.stop_reason = KaitaiStream.resolve_enum(self._root.StopReasons, self._io.read_u4le())
                 self.sample_initial_index = self._io.read_u8le()
                 self.num_samples = self._io.read_u8le()
                 self.sample_rate_scale = self._io.read_u8le()
@@ -102,10 +102,10 @@ class Dlog(KaitaiStruct):
                 self.sample_size = self._io.read_u1()
                 self.header_size = self._io.read_u2be()
                 self.start_of_data = self._io.read_u2be()
-                self.dlog_format = self._root.DlogFormats(self._io.read_u2be())
+                self.dlog_format = KaitaiStream.resolve_enum(self._root.DlogFormats, self._io.read_u2be())
                 self.dlog_version = self._io.read_u4be()
                 self.voltage_scale = self._io.read_u8be()
-                self.stop_reason = self._root.StopReasons(self._io.read_u4be())
+                self.stop_reason = KaitaiStream.resolve_enum(self._root.StopReasons, self._io.read_u4be())
                 self.sample_initial_index = self._io.read_u8be()
                 self.num_samples = self._io.read_u8be()
                 self.sample_rate_scale = self._io.read_u8be()
@@ -151,7 +151,7 @@ class Dlog(KaitaiStruct):
                 if hasattr(self, '_m_channel_map'):
                     return self._m_channel_map if hasattr(self, '_m_channel_map') else None
 
-                self._m_channel_map = b"\x00"
+                self._m_channel_map = (self.openlogger_channel_map if self.dlog_format == self._root.DlogFormats.openlogger else [0])
                 return self._m_channel_map if hasattr(self, '_m_channel_map') else None
 
 

@@ -102,9 +102,7 @@ types:
           num_channels:
             value: 'dlog_format == dlog_formats::openlogger ? num_openlogger_channels : 1'
           channel_map:
-            value: '[0]'
-          # the following requires kaitai 0.9:
-          # value: 'dlog_format == dlog_formats::openlogger ? openlogger_channel_map : [0].as<u1[]>'
+            value: 'dlog_format == dlog_formats::openlogger ? openlogger_channel_map : [0].as<u1[]>'
 
       data:
         seq:
